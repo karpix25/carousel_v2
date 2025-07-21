@@ -3,6 +3,7 @@ import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { card } from './routes/card.js';
+import { carousel } from './routes/carousel.js';
 
 const app = new Hono();
 
@@ -16,6 +17,7 @@ app.use('*', cors({
 
 // Routes
 app.route('/api/card', card);
+app.route('/api', carousel);  // /api/generate-carousel
 
 // Root endpoint
 app.get('/', (c) => {
@@ -23,8 +25,10 @@ app.get('/', (c) => {
     name: 'Professional Card Generator API',
     version: '1.0.0',
     endpoints: {
-      'POST /api/card/generate': 'Generate professional card from Markdown',
-      'GET /api/card/health': 'Health check'
+      'POST /api/card/generate': 'Generate single card from Markdown',
+      'POST /api/generate-carousel': 'Generate full carousel from Markdown', 
+      'GET /api/card/health': 'Health check for cards',
+      'GET /api/health': 'Health check for carousel'
     }
   });
 });
@@ -46,34 +50,3 @@ serve({
   fetch: app.fetch,
   port
 });
-
-// README.md usage example
-/*
-POST /api/card/generate
-
-{
-  "content": "# Professional Card\n## Subtitle\nThis is ***highlighted text*** with professional typography.\n\n- Clean design\n- Modern approach\n- High quality",
-  "style": "modern",
-  "colorTheme": {
-    "primary": "#2563eb",
-    "secondary": "#64748b", 
-    "accent": "#f59e0b",
-    "background": "#ffffff",
-    "text": "#1f2937"
-  },
-  "typography": {
-    "headingFont": "Inter",
-    "bodyFont": "Inter", 
-    "fontSize": 16,
-    "lineHeight": 1.6
-  },
-  "features": {
-    "hangingPunctuation": true,
-    "widowOrphanControl": true,
-    "coloredText": true,
-    "svgPattern": "dots"
-  }
-}
-
-Response: PNG image (1600x2000px)
-*/
