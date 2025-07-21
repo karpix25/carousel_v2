@@ -1,44 +1,145 @@
-import { Hono } from 'hono';
-import { CarouselRenderer } from '../services/carousel-renderer.js';
+import { marked } from 'marked';
 
-const carousel = new Hono();
+export interface SlideData {
+  type: 'intro' | 'text' | 'quote';
+  title?: string;
+  subtitle?: string;
+  text?: string;
+  color: 'default' | 'accent';
+  size?: 'small' | 'medium' | 'large';
+}
 
-carousel.post('/generate-carousel', async (c) => {
-  const startTime = Date.now();
-  
-  try {
-    const body = await c.req.json();
-    const { text, settings = {} } = body;
-    
-    if (!text || typeof text !== 'string') {
-      return c.json({ error: 'Требуется валидный text' }, 400);
+export interface CarouselSettings {
+  username?: string;
+  authorName?: string;
+  brandColor?: string;
+  style?: 'instagram' | 'modern' | 'classic';
+  finalSlide?: {
+    enabled: boolean;
+    type: 'cta' | 'contact' | 'brand';
+    title?: string;
+    text?: string;
+    color?: 'default' | 'accent';
+  };
+}
+
+export class CarouselParser {
+  static async parseMarkdownToSlides(text: string): Promise<SlideData[]> {
+    const tokens = marked.lexer(text);
+    const slides: SlideData[] = [];
+    let currentSlide: SlideData | null = null;
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      if (token.type === 'heading' && token.depth === 1) {
+        // # Заголовок = intro слайд
+        const nextToken = tokens[i + 1];
+        const subtitle = (nextToken && nextToken.type === 'paragraph' && 'text' in nextToken) ? nextToken.text : '';
+        
+        slides.push({
+          type: 'intro',
+          title: 'text' in token ? token.text : '',
+          text: subtitle,
+          color: 'accent'
+        });
+        
+        // Пропускаем следующий токен если он стал subtitle
+        if (subtitle) i++;
+        
+      } else if (token.type === 'heading' && token.depth === 2) {
+        // ## Заголовок = text слайд
+        currentSlide = {
+          type: 'text',
+          title: 'text' in token ? token.text : '',
+          text: '',
+          color: 'default'
+        };
+        slides.push(currentSlide);
+        
+      } else if (token.type === 'blockquote') {
+        // > Цитата = quote слайд
+        const quoteText = (token as any).tokens?.[0]?.text || '';
+        slides.push({
+          type: 'quote',
+          text: quoteText,
+          color: 'accent',
+          size: quoteText.length > 100 ? 'small' : 'large'
+        });
+        
+      } else if (currentSlide && (token.type === 'paragraph' || token.type === 'list')) {
+        // Добавляем контент к текущему слайду
+        if (token.type === 'paragraph' && 'text' in token) {
+          const content = (currentSlide as any).content || [];
+          content.push({ type: 'paragraph', text: token.text });
+          (currentSlide as any).content = content;
+        } else if (token.type === 'list' && 'items' in token) {
+          const content = (currentSlide as any).content || [];
+          content.push({
+            type: 'list',
+            items: token.items.map((item: any) => item.text)
+          });
+          (currentSlide as any).content = content;
+        }
+      }
     }
 
-    console.log(`🎯 Генерация карусели (${text.length} символов)`);
+    // Объединяем контент для text слайдов
+    slides.forEach(slide => {
+      if ((slide as any).content) {
+        const content = (slide as any).content;
+        const paragraphs = content.filter((c: any) => c.type === 'paragraph').map((c: any) => c.text);
+        const lists = content.filter((c: any) => c.type === 'list');
 
-    const result = await CarouselRenderer.generateCarousel(text, settings);
+        let fullText = '';
+        if (paragraphs.length) {
+          fullText += paragraphs.join('\n\n');
+        }
+        if (lists.length) {
+          if (fullText) fullText += '\n\n';
+          lists.forEach((list: any) => {
+            fullText += list.items.map((item: string) => `• ${item}`).join('\n');
+          });
+        }
+        slide.text = fullText;
+        delete (slide as any).content;
+      }
+    });
 
-    const processingTime = Date.now() - startTime;
-    console.log(`✅ Готово за ${processingTime}ms (${result.slides.length} слайдов)`);
-
-    return c.json(result);
-
-  } catch (error) {
-    console.error('❌ Ошибка:', error);
-    return c.json({ 
-      error: 'Failed to generate carousel',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
+    return slides;
   }
-});
 
-carousel.get('/health', (c) => {
-  return c.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    engine: 'satori-carousel'
-  });
-});
+  static addFinalSlide(slides: SlideData[], settings: CarouselSettings): SlideData[] {
+    const finalSlideConfig = settings.finalSlide;
+    if (!finalSlideConfig?.enabled) return slides;
 
-export { carousel };
+    const templates = {
+      cta: { 
+        title: 'Подписывайтесь!', 
+        text: 'Больше контента в профиле', 
+        color: 'accent' as const 
+      },
+      contact: { 
+        title: 'Связаться:', 
+        text: 'email@example.com\n\nTelegram: @username', 
+        color: 'default' as const 
+      },
+      brand: { 
+        title: 'Спасибо за внимание!', 
+        text: 'Помогаю бизнесу расти', 
+        color: 'accent' as const 
+      }
+    };
+
+    const template = templates[finalSlideConfig.type] || templates.cta;
+    const finalSlide: SlideData = {
+      type: 'text',
+      ...template,
+      title: finalSlideConfig.title || template.title,
+      text: finalSlideConfig.text || template.text,
+      color: finalSlideConfig.color || template.color
+    };
+
+    return [...slides, finalSlide];
+  }
+}
