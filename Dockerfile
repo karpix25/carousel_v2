@@ -2,21 +2,32 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Системные зависимости для Sharp
-RUN apk add --no-cache vips-dev build-base python3 make g++
+# Установка системных зависимостей для Sharp
+RUN apk add --no-cache \
+    vips-dev \
+    build-base \
+    python3 \
+    make \
+    g++
 
-# Копируем package.json
+# Копирование package.json
 COPY package*.json ./
-RUN npm ci
 
-# Копируем весь код
+# Установка зависимостей (используем install вместо ci)
+RUN npm install
+
+# Копирование исходного кода
 COPY . .
 
-# СБОРКА внутри Docker!
+# Сборка TypeScript
 RUN npm run build
 
-# Очистка dev зависимостей
-RUN npm ci --only=production && npm cache clean --force
+# Удаление dev зависимостей после сборки
+RUN npm prune --production && npm cache clean --force
+
+# Создание папки для шрифтов если её нет
+RUN mkdir -p ./assets/fonts
 
 EXPOSE 3000
+
 CMD ["node", "dist/server.js"]
