@@ -35,11 +35,11 @@ export class CarouselParser {
       if (token.type === 'heading' && token.depth === 1) {
         // # Заголовок = intro слайд
         const nextToken = tokens[i + 1];
-        const subtitle = (nextToken && nextToken.type === 'paragraph') ? nextToken.text : '';
+        const subtitle = (nextToken && nextToken.type === 'paragraph' && 'text' in nextToken) ? nextToken.text : '';
         
         slides.push({
           type: 'intro',
-          title: token.text,
+          title: 'text' in token ? token.text : '',
           text: subtitle,
           color: 'accent'
         });
@@ -51,16 +51,15 @@ export class CarouselParser {
         // ## Заголовок = text слайд
         currentSlide = {
           type: 'text',
-          title: token.text,
+          title: 'text' in token ? token.text : '',
           text: '',
-          color: 'default',
-          content: []
-        } as any;
+          color: 'default'
+        };
         slides.push(currentSlide);
         
       } else if (token.type === 'blockquote') {
         // > Цитата = quote слайд
-        const quoteText = token.tokens?.[0]?.text || '';
+        const quoteText = (token as any).tokens?.[0]?.text || '';
         slides.push({
           type: 'quote',
           text: quoteText,
@@ -69,16 +68,18 @@ export class CarouselParser {
         });
         
       } else if (currentSlide && (token.type === 'paragraph' || token.type === 'list')) {
-        // Добавляем контент к текущему слайду
-        if (token.type === 'paragraph') {
-          (currentSlide as any).content = (currentSlide as any).content || [];
-          (currentSlide as any).content.push({ type: 'paragraph', text: token.text });
-        } else if (token.type === 'list') {
-          (currentSlide as any).content = (currentSlide as any).content || [];
-          (currentSlide as any).content.push({
+        // Добавляем контент к текущему слайду - ИСПРАВЛЯЕМ ПРОВЕРКУ null
+        if (token.type === 'paragraph' && 'text' in token && currentSlide) {
+          const content = (currentSlide as any).content || [];
+          content.push({ type: 'paragraph', text: token.text });
+          (currentSlide as any).content = content;
+        } else if (token.type === 'list' && 'items' in token && currentSlide) {
+          const content = (currentSlide as any).content || [];
+          content.push({
             type: 'list',
-            items: token.items.map(item => item.text)
+            items: token.items.map((item: any) => item.text || '')
           });
+          (currentSlide as any).content = content;
         }
       }
     }
