@@ -3,7 +3,7 @@ import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { card } from './routes/card.js';
-import { carousel } from './routes/carousel.js';
+// import { carousel } from './routes/carousel.js'; // ВРЕМЕННО ЗАКОММЕНТИРУЕМ
 
 const app = new Hono();
 
@@ -17,7 +17,7 @@ app.use('*', cors({
 
 // Routes
 app.route('/api/card', card);
-app.route('/api', carousel);  // /api/generate-carousel
+// app.route('/api', carousel); // ВРЕМЕННО ЗАКОММЕНТИРУЕМ
 
 // Root endpoint
 app.get('/', (c) => {
@@ -26,9 +26,7 @@ app.get('/', (c) => {
     version: '1.0.0',
     endpoints: {
       'POST /api/card/generate': 'Generate single card from Markdown',
-      'POST /api/generate-carousel': 'Generate full carousel from Markdown', 
-      'GET /api/card/health': 'Health check for cards',
-      'GET /api/health': 'Health check for carousel'
+      'GET /api/card/health': 'Health check for cards'
     }
   });
 });
