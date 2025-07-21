@@ -1,5 +1,5 @@
 import Color from 'colorjs.io';
-import { LineBreaker } from 'css-line-break';
+// import { LineBreaker } from 'css-line-break'; // Временно закомментируем
 import type { TypographySettings } from '../types/index.js';
 
 export class TypographyService {
@@ -18,33 +18,6 @@ export class TypographyService {
   
   static controlWidowsOrphans(text: string): string {
     return text.replace(/\s+(\S+\s*)$/, '\u00A0$1');
-  }
-  
-  static optimizeLineBreaks(text: string, maxWidth: number): string {
-    const breaker = new LineBreaker(text);
-    let result = '';
-    let currentLine = '';
-    
-    for (const word of breaker) {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      
-      if (this.measureTextWidth(testLine) > maxWidth && currentLine) {
-        result += this.controlWidowsOrphans(currentLine) + '\n';
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    }
-    
-    if (currentLine) {
-      result += this.controlWidowsOrphans(currentLine);
-    }
-    
-    return result;
-  }
-  
-  private static measureTextWidth(text: string): number {
-    return text.length * 0.6;
   }
   
   static generateColorVariations(baseColor: string, count: number = 5): string[] {
