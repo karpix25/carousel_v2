@@ -10,10 +10,12 @@ card.post('/generate', async (c) => {
   try {
     const body = await c.req.json();
     
-    // Default configuration
     const config: CardConfig = {
       content: body.content || '',
-      style: body.style || 'modern',
+      style: body.style || 'instagram',
+      username: body.username,
+      authorName: body.authorName,
+      slideNumber: body.slideNumber,
       colorTheme: {
         primary: body.colorTheme?.primary || '#2563eb',
         secondary: body.colorTheme?.secondary || '#64748b',
@@ -28,8 +30,8 @@ card.post('/generate', async (c) => {
         lineHeight: body.typography?.lineHeight || 1.6
       },
       dimensions: {
-        width: body.dimensions?.width || 1600,
-        height: body.dimensions?.height || 2000
+        width: body.dimensions?.width || 1080,
+        height: body.dimensions?.height || 1350
       },
       features: {
         hangingPunctuation: body.features?.hangingPunctuation ?? true,
@@ -39,15 +41,13 @@ card.post('/generate', async (c) => {
       }
     };
     
-    // Validate input
     if (!config.content.trim()) {
       return c.json({ error: 'Content is required' }, 400);
     }
     
-    // Parse markdown content
-    const parsedContent = MarkdownParser.parse(config.content);
+    // ✅ ДОБАВИЛИ AWAIT!
+    const parsedContent = await MarkdownParser.parse(config.content);
     
-    // Apply typography enhancements
     if (config.features.hangingPunctuation) {
       parsedContent.body = TypographyService.applyHangingPunctuation(parsedContent.body);
     }
@@ -56,16 +56,13 @@ card.post('/generate', async (c) => {
       parsedContent.body = TypographyService.controlWidowsOrphans(parsedContent.body);
     }
     
-    // Ensure color contrast
     config.colorTheme.text = TypographyService.ensureContrast(
       config.colorTheme.text,
       config.colorTheme.background
     );
     
-    // Generate card
     const imageBuffer = await CardRenderer.render(config, parsedContent);
     
-    // Return PNG image
     c.header('Content-Type', 'image/png');
     c.header('Content-Length', imageBuffer.length.toString());
     c.header('Cache-Control', 'public, max-age=3600');
@@ -81,7 +78,6 @@ card.post('/generate', async (c) => {
   }
 });
 
-// Health check endpoint
 card.get('/health', (c) => {
   return c.json({ 
     status: 'healthy',
