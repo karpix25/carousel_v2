@@ -24,19 +24,18 @@ export class MarkdownParser {
     return highlights;
   }
 
-  static parse(markdown: string): ParsedContent {
+  static async parse(markdown: string): Promise<ParsedContent> {
     const title = this.extractTitle(markdown);
     const subtitle = this.extractSubtitle(markdown);
     const highlights = this.extractHighlights(markdown);
     
-    // Remove titles and convert to HTML
     let processedMarkdown = markdown
       .replace(/^#\s+.+$/m, '')
       .replace(/^##\s+.+$/m, '')
       .replace(/\*\*\*(.*?)\*\*\*/g, '<span class="highlight">$1</span>')
       .trim();
     
-    const body = marked(processedMarkdown);
+    const body = await marked(processedMarkdown);
     
     return {
       title,
